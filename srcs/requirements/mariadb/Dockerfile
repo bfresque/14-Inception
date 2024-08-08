@@ -1,13 +1,21 @@
-FROM mariadb:latest
+FROM debian:bullseye
 
-# Definir les variables d´environement de MariaDB
-ENV MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-ENV MYSQL_DATABASE=wordpress
-ENV MYSQL_USER=${MYSQL_USER}
-ENV MYSQL_PASSWORD=${MYSQL_PASSWORD}
+# Mettre à jour les paquets et installer MariaDB
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends --no-install-suggests apt-utils mariadb-server && \
+    rm -rf /var/lib/apt/lists/*
 
-# Exposer le port 3306
+# Copie le fichier de configuration personnalisé de MariaDB dans le conteneur
+COPY conf/mysql.conf /etc/mysql/my.cnf
+
+# Copie le script de démarrage personnalisé de MariaDB dans le conteneur
+COPY ./tools/runMariaDB.sh /runMariaDB.sh
+
+# Change les permissions du script de démarrage pour le rendre exécutable
+RUN chmod +x /runMariaDB.sh
+
+# Expose le port 3306 pour les connexions MariaDB
 EXPOSE 3306
 
-# Commande pour demarrer MariaDB
-CMD [¨mysqld¨]
+# Définit la commande par défaut pour démarrer MariaDB avec le script de démarrage personnalisé
+CMD ["/runMariaDB.sh", "mysqld"]

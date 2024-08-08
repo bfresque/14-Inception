@@ -11,6 +11,6 @@ down:
 
 clean: down
 	docker system prune -af
-	docker volume rm $(docker volume ls -q)
+	docker volume prune -f
 
 re: clean all

@@ -1,40 +1,75 @@
 version: '3.8'
 
 services:
-  nginx:
+  mariadb:
     build:
-      context: ./requirements/nginx
-    ports:
-      - "443:443"
+      context: ./requirements/mariadb
+    container_name: mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
-      - ./data/nginx:/etc/nginx/conf.d
-    depends_on:
-      - wordpress
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - inception_network
+    restart: on-failure
 
   wordpress:
     build:
       context: ./requirements/wordpress
+    container_name: wordpress
     volumes:
-      - ./data/wordpress:/var/www/html
-    environment:
-      WORDPRESS_DB_HOST: mariadb:3306
-      WORDPRESS_DB_USER: ${MYSQL_USER}
-      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
-      WORDPRESS_DB_NAME: wordpress
+      - wordpress_data:/var/www/html
     depends_on:
       - mariadb
+    networks:
+      - inception_network
+    env_file:
+      - .env
+    restart: on-failure
 
-  mariadb:
+  nginx:
     build:
-      context: ./requirements/mariadb
+      context: ./requirements/nginx/
+      args:
+        SSL_CERT_FOLDER: ${SSL_CERT_FOLDER}
+        SSL_CERT_PATH: ${SSL_CERT_PATH}
+        SSL_KEY_PATH: ${SSL_KEY_PATH}
+        COUNTRY: ${COUNTRY}
+        STATE: ${STATE}
+        LOCALITY: ${LOCALITY}
+        ORGANIZATION: ${ORGANIZATION}
+        UNIT: ${UNIT}
+        DOMAIN_NAME: ${DOMAIN_NAME}
+    container_name: nginx
+    ports:
+      - "443:443"
     volumes:
-      - ./data/mariadb:/var/lib/mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: wordpress
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      - wordpress_data:/var/www/html
+    networks:
+      - inception_network
+    env_file:
+      - .env
+    depends_on:
+      - wordpress
+    restart: on-failure
+
+volumes:
+  mariadb_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/user/data/mariadb
+      o: bind
+  wordpress_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/user/data/wordpress
+      o: bind
 
 networks:
-  default:
+  inception_network:
     driver: bridge

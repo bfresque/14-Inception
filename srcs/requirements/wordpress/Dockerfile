@@ -1,24 +1,39 @@
-FROM debian:bullseye-slim
+FROM debian:bullseye
 
-# Installer PHP et php-fpm et les extentions necessaires
+# Mettre à jour les paquets et installer les dépendances nécessaires
 RUN apt-get update && \
-	apt-get install -y php-fpm php-mysql wget && \
-	apt-get clean && \
-	rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends --no-install-suggests \
+    ca-certificates php-fpm php-mysql wget default-mysql-client curl php-cli php-zip && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /run/php && mkdir -p /var/www/html
 
-# Telecharger et installer WordPress
-RUN wget https://wordpress.org/latest.tar.gz && \
+# Télécharger et installer WordPress
+RUN wget --no-check-certificate https://wordpress.org/latest.tar.gz && \
     tar -xzf latest.tar.gz && \
     rm latest.tar.gz && \
     mv wordpress /var/www/html/ && \
-    chown -R www-data::www-data /var/www/html
+    chown -R www-data:www-data /var/www/html
 
-# Copier les fichiers de configuration
-COPY ./conf/wp-config.php /var/www/html/wp-config.php
+# Télécharger et installer WP-CLI
+RUN wget --no-check-certificate https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && \
+    chmod +x wp-cli.phar && \
+    mv wp-cli.phar /usr/local/bin/wp
 
+# Copier le fichier de configuration PHP-FPM
+COPY ./conf/www.conf /etc/php/7.4/fpm/pool.d/www.conf
 
-# Exposer le port 9000
+# Copier le script de démarrage de WordPress
+COPY ./tools/runWordPress.sh ./runWordPress.sh
+
+# Modifier les configurations PHP pour PHP-FPM
+RUN sed -i 's/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/g' /etc/php/7.4/cli/php.ini && \
+    sed -i "s/listen = \/run\/php\/php7.4-fpm.sock/listen = 9000/g" /etc/php/7.4/fpm/pool.d/www.conf && \
+    sed -i 's/;listen.mode = 0660/listen.mode = 0660/g' /etc/php/7.4/fpm/pool.d/www.conf && \
+    sed -i 's/;daemonize = yes/daemonize = no/g' /etc/php/7.4/fpm/pool.d/www.conf
+
+# Exposer le port 9000 pour PHP-FPM
 EXPOSE 9000
 
-# Commande pour demarrer php-fpm
-CMD [¨php-fpm¨]
+# Définir le CMD par défaut pour démarrer le script et PHP-FPM
+CMD ["/runWordPress.sh", "php-fpm7.4"]
